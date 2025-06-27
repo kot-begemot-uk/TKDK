@@ -1,0 +1,10 @@
+{
+    "cache_managers": [
+        {
+            "id":"test_manager",
+            "cache_dir":"//home/fedora/anivanov/src/test-cache"
+        }
+    ],
+    "fallback":true,
+    "debug":true
+}
