@@ -2,7 +2,8 @@
     "cache_managers": [
         {
             "id":"test_manager",
-            "cache_dir":"//home/fedora/anivanov/src/test-cache"
+            "cache_dir":"//home/fedora/anivanov/src/test-cache",
+            "rsa_key":"//home/fedora/anivanov/src/public-key.pem"
         }
     ],
     "fallback":true,

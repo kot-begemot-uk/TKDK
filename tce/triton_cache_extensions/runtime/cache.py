@@ -6,12 +6,18 @@ from typing import Dict, Optional
 
 from enhanced_pathlib import EPath
 from triton.runtime.cache import CacheManager, FileCacheManager
+try:
+    from Crypto.PublicKey import RSA
+except ModuleNotFoundError:
+    from Cryptodome.PublicKey import RSA
+
 
 class HierarchicalCacheManager(CacheManager):
     '''Hierarchical Path Manager class path element'''
     config = None
     managers = []
     needs_init = True
+    rsa_keys = []
 
     def __init__(self, key,  override=False, dump=False):
         # dump and override are ignored - they are here for compatibility
@@ -26,7 +32,14 @@ class HierarchicalCacheManager(CacheManager):
                 raise RuntimeError("Could not open and parse Cache Manager configuration") from exc
 
             for conf in HierarchicalCacheManager.config["cache_managers"]:
-                HierarchicalCacheManager.managers.append(EPathCacheManager(key, conf))
+                try:
+                    with open(conf["rsa_key"], mode="rb") as keyfile:
+                        HierarchicalCacheManager.rsa_keys.append(RSA.import_key(keyfile.read()))
+                    HierarchicalCacheManager.managers.append(
+                        SignedCacheManager(key, conf, HierarchicalCacheManager.rsa_keys[-1]))
+                except KeyError:
+                    HierarchicalCacheManager.rsa_keys.append(None)
+                    HierarchicalCacheManager.managers.append(EPathCacheManager(key, conf))
 
             if HierarchicalCacheManager.config["fallback"]:
                 HierarchicalCacheManager.managers.append(
@@ -103,15 +116,11 @@ class EPathCacheManager(CacheManager):
 
     def has_file(self, filename) -> bool:
         '''EPath based has_file - checks if file exists'''
-
-        print(f"asking exist for {self.filepath(filename).as_posix()}")
-
         return self.filepath(filename).exists()
 
     def get_file(self, filename) -> Optional[str]:
         '''EPath based get_file - returns full path for a file'''
         path = self.filepath(filename)
-        print(f"asking get for {path.as_posix()}")
         if path.exists():
             return path.as_posix()
         return None
@@ -120,9 +129,6 @@ class EPathCacheManager(CacheManager):
         '''EPath based get_group'''
 
         grp = self.filepath(f"__grp__{filename}")
-
-        print(f"asking group for {grp.as_posix()}")
-
         if not grp.exists():
             return None
         grp_data = json.loads(grp.read_text())
@@ -155,13 +161,23 @@ class EPathCacheManager(CacheManager):
 
 class SignedCacheManager(EPathCacheManager):
     '''Signed artifact cache manager using EPath'''
-    rsa_key = None
 
-    def filepath(self, filename, **kargs):
-        '''Return an EPath object for the filename'''
-        epath = super().filepath(filename, **kargs)
-        if filename is not None and self.rsa_key is not None:
-            sigpath = epath.with_suffix(".sig")
-            epath.signature = sigpath.read_bytes()
-            epath.key = self.rsa_key
-        return epath
+    def __init__(self, key, config, rsa_key):
+        super().__init__(key, config)
+        self.rsa_key = rsa_key
+
+    def _verify_group(self, group):
+        '''Check if all files in the group have valid signatures'''
+        for filename in group.values():
+            EPath(
+                filename,
+                signed='sha384',
+                key = self.rsa_key,
+                signature=EPath(filename + ".sig").read_bytes()
+            ).read_bytes()
+
+    def get_group(self, filename: str) -> Optional[Dict[str, str]]:
+        '''EPath based get_group with integrated verify'''
+        result = super().get_group(filename)
+        self._verify_group(result)
+        return result
