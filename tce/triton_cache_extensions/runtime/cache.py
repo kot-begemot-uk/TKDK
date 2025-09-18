@@ -168,6 +168,8 @@ class SignedCacheManager(EPathCacheManager):
 
     def _verify_group(self, group):
         '''Check if all files in the group have valid signatures'''
+        if group is None:
+            return
         for filename in group.values():
             EPath(
                 filename,
