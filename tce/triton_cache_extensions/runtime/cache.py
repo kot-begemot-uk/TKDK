@@ -2,7 +2,10 @@
 import json
 import os
 import random
+import tarfile
 from typing import Dict, Optional
+from tempfile import TemporaryDirectory, NamedTemporaryFile
+import urllib.request
 
 from enhanced_pathlib import EPath
 from triton.runtime.cache import CacheManager, FileCacheManager
@@ -158,6 +161,37 @@ class EPathCacheManager(CacheManager):
         filepath = self.filepath(filename)
         os.rename(str(path), str(filepath))
         return str(filepath)
+
+TARNAME = "{}/{}.tar.gz"
+
+class WebClientCacheManager(EPathCacheManager):
+    '''Cache which fetches cache entries from a configured web server.
+       Note - this class does not perform web server submission.
+    '''
+    def __init__(self, key, config):
+        super().__init__(key, config)
+        self.fetch_if_needed()
+
+    def fetch_if_needed(self):
+        '''Fetch a cache entry from a web server if it is not present locally'''
+        path = EPath(self.config["cache_dir"], self.key)
+        if path.is_dir():
+            return
+        # we do not want to use with on temp_dir as it is intended to stay after we are done
+        # and we want to handle the -EEXISTS
+        # pylint: disable=consider-using-with
+        temp_dir = TemporaryDirectory(dir=self.config["cache_dir"], delete=False)
+        with NamedTemporaryFile(dir="/tmp", delete=False, delete_on_close=False) as temp_tar:
+            with urllib.request.urlopen(TARNAME.format(self.config["url"], self.key)) as urldata:
+                temp_tar.write(urldata.read())
+            temp_tar.close()
+            tar = tarfile.open(name=temp_tar.name, mode="r:gz")
+            tar.extractall(path=temp_dir.name, filter=tarfile.data_filter)
+            os.unlink(temp_tar.name)
+        try:
+            os.rename(temp_dir, path.as_posix())
+        except FileExistsError:
+            pass
 
 class SignedCacheManager(EPathCacheManager):
     '''Signed artifact cache manager using EPath'''

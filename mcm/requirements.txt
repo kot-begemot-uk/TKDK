@@ -6,3 +6,4 @@ pydantic-settings>=2.0.0
 structlog>=23.0.0
 sqlalchemy>=2.0.40
 pytest>=7.0.0
+enhanced_pathlib
