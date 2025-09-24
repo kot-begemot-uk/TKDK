@@ -14,7 +14,6 @@ try:
 except ModuleNotFoundError:
     from Cryptodome.PublicKey import RSA
 
-
 class HierarchicalCacheManager(CacheManager):
     '''Hierarchical Path Manager class path element'''
     config = None
@@ -35,15 +34,14 @@ class HierarchicalCacheManager(CacheManager):
                 raise RuntimeError("Could not open and parse Cache Manager configuration") from exc
 
             for conf in HierarchicalCacheManager.config["cache_managers"]:
+                HierarchicalCacheManager.managers.append(CACHE_TYPES[conf["type"]](key, conf))
                 try:
                     with open(conf["rsa_key"], mode="rb") as keyfile:
-                        HierarchicalCacheManager.rsa_keys.append(RSA.import_key(keyfile.read()))
-                    HierarchicalCacheManager.managers.append(
-                        SignedCacheManager(key, conf, HierarchicalCacheManager.rsa_keys[-1]))
+                        rsa_key = RSA.import_key(keyfile.read())
+                        HierarchicalCacheManager.rsa_keys.append(rsa_key)
+                        HierarchicalCacheManager.managers[-1].set_key(rsa_key)
                 except KeyError:
                     HierarchicalCacheManager.rsa_keys.append(None)
-                    HierarchicalCacheManager.managers.append(EPathCacheManager(key, conf))
-
             if HierarchicalCacheManager.config["fallback"]:
                 HierarchicalCacheManager.managers.append(
                     FileCacheManager(key, override=override, dump=dump))
@@ -189,15 +187,19 @@ class WebClientCacheManager(EPathCacheManager):
             tar.extractall(path=temp_dir.name, filter=tarfile.data_filter)
             os.unlink(temp_tar.name)
         try:
-            os.rename(temp_dir, path.as_posix())
+            os.rename(temp_dir.name, path.as_posix())
         except FileExistsError:
             pass
 
 class SignedCacheManager(EPathCacheManager):
     '''Signed artifact cache manager using EPath'''
 
-    def __init__(self, key, config, rsa_key):
+    def __init__(self, key, config, rsa_key=None):
         super().__init__(key, config)
+        self.rsa_key = rsa_key
+
+    def set_key(self, rsa_key):
+        '''Set RSA Key'''
         self.rsa_key = rsa_key
 
     def _verify_group(self, group):
@@ -217,3 +219,9 @@ class SignedCacheManager(EPathCacheManager):
         result = super().get_group(filename)
         self._verify_group(result)
         return result
+
+CACHE_TYPES = {
+    "file":EPathCacheManager,
+    "sig":SignedCacheManager,
+    "web":WebClientCacheManager
+}
