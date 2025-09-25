@@ -5,7 +5,7 @@ import random
 import tarfile
 from typing import Dict, Optional
 from tempfile import TemporaryDirectory, NamedTemporaryFile
-import urllib.request
+import requests
 
 from enhanced_pathlib import EPath
 from triton.runtime.cache import CacheManager, FileCacheManager
@@ -180,8 +180,9 @@ class WebClientCacheManager(EPathCacheManager):
         # pylint: disable=consider-using-with
         temp_dir = TemporaryDirectory(dir=self.config["cache_dir"], delete=False)
         with NamedTemporaryFile(dir="/tmp", delete=False, delete_on_close=False) as temp_tar:
-            with urllib.request.urlopen(TARNAME.format(self.config["url"], self.key)) as urldata:
-                temp_tar.write(urldata.read())
+            req = requests.Request('GET', TARNAME.format(self.config["url"], self.key))
+            for data in requests.Session().send(req.prepare()).iter_content(chunk_size=2048):
+                temp_tar.write(data)
             temp_tar.close()
             tar = tarfile.open(name=temp_tar.name, mode="r:gz")
             tar.extractall(path=temp_dir.name, filter=tarfile.data_filter)
