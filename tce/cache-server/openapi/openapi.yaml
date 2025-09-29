@@ -1,0 +1,356 @@
+openapi: 3.0.1
+info:
+  title: TCE Cache Server API
+  version: v1alpha1
+  description: |
+    [MCU](https://https://github.com/redhat-et/MCU/TCE) Allows Client-Server control over Triton/PyTorch/VLLM artefact caching.
+  contact:
+    name: RedHat Model Cache Utils Team
+    url: https://github.com/redhat-et/MCU/
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+servers:
+  - url: /api
+paths:
+  /version:
+    get:
+      description: Get service version.
+      operationId: get_version
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "503":
+          description: ServiceUnavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /v1/cache:
+    get:
+      description: List Cache Entries.
+      operationId: list_cache_entries
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheState'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "503":
+          description: ServiceUnavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /v1/cache/{name}:
+    get:
+      tags:
+        - cache
+      description: Get Cache Entry Metadata.
+      operationId: get_cache_group
+      parameters:
+        - name: name
+          in: path
+          description: The name of the Cache entry to get.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheGroup'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "404":
+          description: NotFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "503":
+          description: ServiceUnavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+    put:
+      description: Update a Cache Entry. Note - discards binary artefacts.
+      operationId: replace_cache_entry
+      parameters:
+        - name: name
+          in: path
+          description: The name of the Cache entry to update.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CacheGroup'
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheGroup'
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheGroup'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "404":
+          description: NotFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "409":
+          description: StatusConflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "503":
+          description: ServiceUnavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+    delete:
+      description: Delete a Cache Entry.
+      operationId: delete_cache_entry
+      parameters:
+        - name: name
+          in: path
+          description: The name of the Device resource to delete.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "404":
+          description: NotFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "503":
+          description: ServiceUnavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /v1/devices/{name}/binary:
+    get:
+      description: Get the binary artefacts for a Cache Entry.
+      operationId: get_binary_artefacts
+      parameters:
+        - name: name
+          in: path
+          description: The name of the Device resource to get.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "404":
+          description: NotFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "503":
+          description: ServiceUnavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+    put:
+      description: Update Cache binary artefacts.
+      operationId: update_cache_entry
+      parameters:
+        - name: name
+          in: path
+          description: The name of the Cache entry to update.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/gzip:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheGroup'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "404":
+          description: NotFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        "503":
+          description: ServiceUnavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+components:
+  schemas:
+    Version:
+      type: object
+      description: 'Git version of the service.'
+      properties:
+        version:
+          description: 'Git version of the service.'
+          type: string
+    Status:
+      type: object
+      description: 'Operation and/or object Status'
+      properties:
+        status:
+          type: integer
+          format: int32
+          description: 'Cache entry state from enum (tbd)'
+    CacheGroup:
+      type: object
+      description: 'Cache group in fs relative form'
+      properties:
+        state:
+          $ref: '#/components/schemas/Status'
+        child_paths:
+          type: object
+          additionalProperties:
+            type: string
+    CacheState:
+      type: object
+      description: 'Cache State and entries'
+      properties:
+        items:
+          type: array
+          description: 'Cache Entries'
+          items:
+            $ref: '#/components/schemas/CacheGroup'
+            
