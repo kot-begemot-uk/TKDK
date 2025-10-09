@@ -115,8 +115,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Status'
-    put:
-      description: Update a Cache Entry. Note - discards binary artefacts.
+    patch:
+      description: Update Cache Entry Metadata. Note - cache entry MUST exist. 
       operationId: replace_cache_entry
       parameters:
         - name: name
@@ -138,14 +138,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CacheGroup'
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CacheGroup'
         "400":
-          description: Bad Request
+          description: Bad Request - update attempted to alter fields which are immutable
           content:
             application/json:
               schema:
@@ -221,7 +215,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Status'
-  /v1/devices/{name}/binary:
+  /v1/cache/{name}/binary:
     get:
       description: Get the binary artefacts for a Cache Entry.
       operationId: get_binary_artefacts
@@ -264,6 +258,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Status'
+  /v1/binary:
     put:
       description: Update Cache binary artefacts.
       operationId: update_cache_entry

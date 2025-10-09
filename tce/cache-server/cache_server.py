@@ -44,7 +44,6 @@ class CacheServer():
         self.schema = [
             ("{}/api/version", ["GET"], self.get_version),
             ("{}/api/v1/cache", ["GET"], self.get_cache),
-            ("{}/api/version", ["GET"], self.get_version),
             ("{}/api/v1/cache/<cache_key>", ["GET"], self.get_cache_item),
             ("{}/api/v1/cache/<cache_key>", ["PATCH"], self.set_cache_item),
             ("{}/api/v1/cache/<cache_key>", ["DELETE"], self.delete_cache_item),
@@ -83,6 +82,7 @@ class CacheServer():
         with open(tar_fd.name, mode="rb") as to_compress:
             gzip_file.write(to_compress.read())
         gzip_file.close()
+        os.unlink(tar_fd.name)
 
         return target
 
