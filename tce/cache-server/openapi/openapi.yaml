@@ -271,10 +271,13 @@ paths:
             type: string
       requestBody:
         content:
-          application/gzip:
+          multipart/form-data:
             schema:
-              type: string
-              format: binary
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: application/gzip
       responses:
         "200":
           description: OK
