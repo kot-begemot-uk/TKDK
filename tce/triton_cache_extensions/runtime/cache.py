@@ -5,7 +5,7 @@ import random
 import tarfile
 from typing import Dict, Optional
 from tempfile import TemporaryDirectory, NamedTemporaryFile
-import requests
+import requests_openapi
 
 from enhanced_pathlib import EPath
 from triton.runtime.cache import CacheManager, FileCacheManager
@@ -166,8 +166,15 @@ class WebClientCacheManager(EPathCacheManager):
     '''Cache which fetches cache entries from a configured web server.
        Note - this class does not perform web server submission.
     '''
+
+    IDL = None
+    METADATA_NAME = "__grp__add_kernel.json"
+
     def __init__(self, key, config):
         super().__init__(key, config)
+        if WebClientCacheManager.IDL is None:
+            WebClientCacheManager.IDL = requests_openapi.Client().load_spec_from_file(config["openapi"])
+            WebClientCacheManager.IDL.set_server(requests_openapi.Server(url=config["url"]))
         self.fetch_if_needed()
 
     def fetch_if_needed(self):
@@ -178,19 +185,33 @@ class WebClientCacheManager(EPathCacheManager):
         # we do not want to use with on temp_dir as it is intended to stay after we are done
         # and we want to handle the -EEXISTS
         # pylint: disable=consider-using-with
+
         temp_dir = TemporaryDirectory(dir=self.config["cache_dir"], delete=False)
         with NamedTemporaryFile(dir="/tmp", delete=False, delete_on_close=False) as temp_tar:
-            req = requests.Request('GET', TARNAME.format(self.config["url"], self.key))
-            for data in requests.Session().send(req.prepare()).iter_content(chunk_size=2048):
-                temp_tar.write(data)
-            temp_tar.close()
-            tar = tarfile.open(name=temp_tar.name, mode="r:gz")
-            tar.extractall(path=temp_dir.name, filter=tarfile.data_filter)
+            resp = self.IDL.get_binary_artefacts(name=self.key)
+            if resp.status_code == 200:
+                for data in resp.iter_content(chunk_size=2048):
+                    temp_tar.write(data)
+                temp_tar.close()
+                tar = tarfile.open(name=temp_tar.name, mode="r:gz")
+                tar.extractall(path=temp_dir.name, filter=tarfile.data_filter)
+                self.update_group_file(temp_dir.name)
+                try:
+                    os.rename(temp_dir.name, path.as_posix())
+                except FileExistsError:
+                    pass
             os.unlink(temp_tar.name)
-        try:
-            os.rename(temp_dir.name, path.as_posix())
-        except FileExistsError:
-            pass
+
+    def update_group_file(self, temp_dir):
+        '''Update group file'''
+        with EPath(temp_dir, self.METADATA_NAME).open(mode="r", encoding="ascii") as meta:
+            data = json.load(meta)
+        new_paths = {}
+        for key, value in data["child_paths"].items():
+            new_paths[key] = EPath(self.config["cache_dir"], self.key, value).name
+        data["child_paths"] = new_paths
+        with EPath(temp_dir, self.METADATA_NAME).open(encoding="ascii", mode="w") as new_meta:
+            json.dump(data, new_meta)
 
 class SignedCacheManager(EPathCacheManager):
     '''Signed artifact cache manager using EPath'''

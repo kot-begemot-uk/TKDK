@@ -76,7 +76,8 @@ class CacheServer():
                                 delete_on_close=False) as tar_fd:
             with tarfile.TarFile(tar_fd.name, mode="w") as tarf:
                 for artefact in Path(temp_dir).glob("*"):
-                    tarf.add(artefact.as_posix(), arcname=artefact.stem)
+                    tarf.add(artefact.as_posix(),
+                             arcname=artefact.stem + "".join(artefact.suffixes))
         target = Path(tar_fd.name + ".tar.gz")
         gzip_file = gzip.GzipFile(target.as_posix(), mode="wb")
         with open(tar_fd.name, mode="rb") as to_compress:
@@ -265,4 +266,4 @@ app = bottle.Bottle()
 cache_server = TritonCacheServer()
 cache_server.setup_routing(app, cache_server.schema)
 
-app.run(host="192.168.2.198", port=8080)
+app.run(host="192.168.2.198", port=7080)
